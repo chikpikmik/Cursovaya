@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,20 +28,26 @@ namespace Cursovaya
         {
             InitializeComponent();
 
-            foreach (UIElement element in MenuButtons.Children)
-            {
-                if (element is Button)
-                {
-                    Button button = element as Button;
+            CultureInfo ci = CultureInfo.CreateSpecificCulture(CultureInfo.CurrentCulture.Name);
+            ci.DateTimeFormat.ShortDatePattern = "yyyy-MM-dd";
+            //ci.DateTimeFormat.FullDateTimePattern = "yyyy-MM-dd";
+            Thread.CurrentThread.CurrentCulture = ci;
 
-                    if (button.Content.ToString() != "123")
-                    {
-                        button.Visibility = Visibility.Visible;
-                    }
-                    else
-                    {
-                        button.Visibility = Visibility.Collapsed;
-                    }
+            string query = "" +
+                "SELECT name " +
+                "FROM sqlite_master " +
+                "WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+
+            DataTable Tables = db.GetDataTableByQuery(query);
+
+            foreach(DataRow row in Tables.Rows)
+            {
+                string TableName = row["Name"].ToString();
+                if (true)
+                {
+                    Button button = new Button();
+                    button.Content = TableName;
+                    MenuButtons.Children.Add(button);
                 }
             }
 

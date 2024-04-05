@@ -108,6 +108,10 @@ namespace Cursovaya
         {
             string header = e.Column.Header.ToString();
             e.Column.Header = header.Replace("_", "__");
+            if (e.PropertyType == typeof(DateTime))
+            {
+                (e.Column as DataGridTextColumn).Binding.StringFormat = "yyyy-MM-dd";
+            }
         }
 
     }

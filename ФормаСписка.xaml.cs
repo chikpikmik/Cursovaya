@@ -19,6 +19,8 @@ namespace Cursovaya
     /// <summary>
     /// Логика взаимодействия для ФормаСписка.xaml
     /// </summary>
+    public delegate void UpdateTable();
+
     public partial class ФормаСписка : Page
     {
         private string TableName;
@@ -46,16 +48,32 @@ namespace Cursovaya
                     Element.Add(columns[i].ColumnName, rowValues[i].ToString());
                 }
 
-                ФормаЭлемента ElementForm = new ФормаЭлемента(Element, TableName);
+                UpdateTable del = new UpdateTable(this.UpdateTable);
+
+                ФормаЭлемента ElementForm = new ФормаЭлемента(Element, TableName, del);
                 ElementForm.Show();
 
             }
+        }
+
+
+        private void UpdateTable()
+        {
+            int OldSelectedIndex = DataGrid.SelectedIndex;
+            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableName}").DefaultView;
+            DataGrid.SelectedItem = DataGrid.Items[OldSelectedIndex];
+            DataGrid.ScrollIntoView(DataGrid.SelectedItem);
+            DataGrid.Focus();
         }
 
         private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
             string header = e.Column.Header.ToString();
             e.Column.Header = header.Replace("_", "__");
+            if (e.PropertyType == typeof(DateTime)) 
+            {
+                (e.Column as DataGridTextColumn).Binding.StringFormat = "yyyy-MM-dd";
+            }
         }
     }
 }

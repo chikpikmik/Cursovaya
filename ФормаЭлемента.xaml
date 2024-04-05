@@ -82,12 +82,18 @@
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
                         <Setter Property="FontSize" Value="14"/>
                         <Setter Property="IsEditable" Value="True"/>
-                        <Setter Property="Focusable" Value="False"/>
+                        <Setter Property="Focusable" Value="True"/>
 
+                    </Style>
+                    <Style TargetType="DatePicker">
+                        <Setter Property="Margin" Value="0,0,0,5"/>
+                        <Setter Property="Height" Value="28"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="FontSize" Value="14"/>
+                        <Setter Property="SelectedDateFormat" Value="Short"/>
                     </Style>
                 </StackPanel.Resources>
 
-                
             </StackPanel>
         </Grid>
 

@@ -16,7 +16,8 @@
         AllowsTransparency="True"
         BorderThickness="1.5"
         BorderBrush="#FFF9C70A"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Topmost="True">
 
 
     <WindowChrome.WindowChrome>

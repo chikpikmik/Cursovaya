@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.Eventing.Reader;
+using System.Globalization;
 using System.IO.Packaging;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,61 +28,56 @@ namespace Cursovaya
     public partial class ФормаЭлемента : Window
     {
         public Dictionary<string, string> Element;
-        public string TableName;
-        public Dictionary<string, string> Table_PrimaryKey = new Dictionary<string, string>();
-        public ФормаЭлемента(Dictionary<string, string> Element, string TableName)
+        public TableInfo TableInfo;
+        private UpdateTable UpdateTableDelegate;
+        public ФормаЭлемента(Dictionary<string, string> element, string tablename, UpdateTable updatetable)
         {
             InitializeComponent();
-            this.Element = Element;
-            this.TableName = TableName;
+            Element = element;
+            UpdateTableDelegate = updatetable;
 
-            
-            string query = "" +
-                "SELECT " +
-                    "table_info.name AS [Column]," +
-                    "table_info.type AS Type," +
-                    "table_info.[notnull] AS NotNullVal," +
-                    "foreign_key_list.[table] AS Linked_Table," +
-                    "foreign_key_list.[to] AS Linked_Table_Primary_Key " +
-                "FROM " +
-                    $"pragma_table_info('{TableName}') AS table_info " +
-                "LEFT JOIN " +
-                    $"pragma_foreign_key_list('{TableName}') AS foreign_key_list " +
-                "ON foreign_key_list.[from] = table_info.name";
+            TableInfo = db.GetTableInfo(tablename);
 
-            DataTable ColumnInfo = db.GetDataTableByQuery(query);
-
-            foreach (var pair in Element)
+            foreach (var ColumnName_Value in Element)
             {
-                DataRow row = ColumnInfo.Select($"Column = '{pair.Key}'")[0];
-
-                var Column = row.ItemArray[0];
-                var Type = row.ItemArray[1];
-                var NotNullVal = row.ItemArray[2];
-                var LinkedTable = row.ItemArray[3];
-                var LinkedTablePrimaryKey = row.ItemArray[4];
+                ColumnInfo ColumnInfo = TableInfo.ColumnName_ColumnInfo[ColumnName_Value.Key];
 
                 Label label = new Label();
-                label.Content = pair.Key.Replace("_","__") + ":";
-                Реквизиты.Children.Add(label);
+                label.Content = ColumnName_Value.Key.Replace("_","__") + ":";
 
-                if (LinkedTable == DBNull.Value)
+                Реквизиты.Children.Add(label);
+                Control Box;
+                if (ColumnInfo.LinkedTableName != null)
+                { 
+                    ComboBox comboBox = new ComboBox();
+                    comboBox.Text = ColumnName_Value.Value;
+                    comboBox.Name = ColumnInfo.LinkedTableName;
+                    comboBox.DropDownOpened += ComboBox_DropDownOpened;
+                    Box = comboBox;
+                }
+                else if (ColumnInfo.Type == ColumnInfo.Types.DATE) 
                 {
-                    TextBox textBox = new TextBox();
-                    textBox.Text = pair.Value;
-                    ЗначенияРеквизитов.Children.Add(textBox);
+                    DateTime date;
+                    DatePicker datePicker = new DatePicker();
+                    if (DateTime.TryParseExact(
+                        ColumnName_Value.Value, 
+                        "yyyy-MM-dd H:mm:ss", 
+                        CultureInfo.CurrentCulture, 
+                        DateTimeStyles.None, 
+                        out date))
+                    {
+                        datePicker.SelectedDate = date;
+                    }
+                    Box = datePicker;
                 }
                 else
                 {
-                    ComboBox comboBox = new ComboBox();
-                    comboBox.Text = pair.Value;
-                    comboBox.Name = LinkedTable.ToString();
-                    Table_PrimaryKey.Add(LinkedTable.ToString(), LinkedTablePrimaryKey.ToString());
-                    comboBox.DropDownOpened += ComboBox_DropDownOpened;
-                    ЗначенияРеквизитов.Children.Add(comboBox);
+                    TextBox textBox = new TextBox();
+                    textBox.Text = ColumnName_Value.Value;
+                    Box = textBox;
                 }
-
-                
+                Box.Focusable = !ColumnInfo.IsItPrimaryKey;
+                ЗначенияРеквизитов.Children.Add(Box);
             }
 
         }
@@ -91,10 +89,97 @@ namespace Cursovaya
 
         private void Write_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("writed");
-            // тут проверяются типы и заполнение
-            // тут создается UPDATE запрос
-            // и тут вызвается делегат который в ФормеСписка обновляет таблицу
+            bool Отказ = false;
+            bool Истина = true;
+
+            string UpdateQuery = $"UPDATE {TableInfo.TableName} SET ";
+            string Where = "WHERE ";
+
+            for (int i=0; i < Element.Count; i++)
+            {
+                var CurrenElement = Element.ElementAt(i);
+                ColumnInfo ColumnInfo = TableInfo.ColumnName_ColumnInfo[CurrenElement.Key];
+
+                Control CurrentBox = (Control)ЗначенияРеквизитов.Children[i];
+                string CurrentValue;
+
+                if (CurrentBox is TextBox textBox)
+                    CurrentValue = textBox.Text;
+                else if (CurrentBox is ComboBox comboBox)
+                    CurrentValue = comboBox.Text;
+                else if (CurrentBox is DatePicker dateBox)
+                    CurrentValue = dateBox.SelectedDate == null ? string.Empty : ((DateTime)dateBox.SelectedDate).ToShortDateString();
+                else
+                    continue;
+
+                // Создание запроса
+                bool NextIsPrimaryKey_AndThisIsEnd = ((i+1)+1 == Element.Count) && TableInfo.ColumnName_ColumnInfo.ElementAt(i+1).Value.IsItPrimaryKey;
+                bool CurrentIsEnd = i + 1 == Element.Count;
+                if (!ColumnInfo.IsItPrimaryKey)
+                    UpdateQuery += $"{ColumnInfo.ColumnName} = '{CurrentValue}'{( CurrentIsEnd || NextIsPrimaryKey_AndThisIsEnd ? "" : ",")} ";
+
+                string OldValue = CurrenElement.Value;
+                if (ColumnInfo.Type == ColumnInfo.Types.DATE)
+                {
+                    DateTime OldDate;
+                    if (!DateTime.TryParseExact(
+                            OldValue,
+                            "yyyy-MM-dd H:mm:ss",
+                            CultureInfo.CurrentCulture,
+                            DateTimeStyles.None,
+                            out OldDate))
+                    {
+                        //Отказ = Истина;
+                        MessageBox.Show("Что то не то со старой датой");
+                        //continue;
+                    }
+                    else
+                    {
+                        OldValue = OldDate.ToShortDateString();
+                    }
+                }
+                Where += $"{ColumnInfo.ColumnName} = '{OldValue}'{( CurrentIsEnd ? "" : " AND ")} ";
+
+
+                if (CurrentValue.Equals(string.Empty) && ColumnInfo.NotNull)
+                {
+                    Отказ = Истина;
+                    MessageBox.Show($"Поле {ColumnInfo.ColumnName} обязательно для заполнения");
+                    continue;
+                }
+                else if ( (! int.TryParse(CurrentValue, out int _)) && ColumnInfo.Type == ColumnInfo.Types.INTEGER)
+                {
+                    Отказ = Истина;
+                    MessageBox.Show($"Поле {ColumnInfo.ColumnName} должно быть целым числом");
+                }
+                else if ((! double.TryParse(CurrentValue, out double _)) && ColumnInfo.Type == ColumnInfo.Types.REAL)
+                {
+                    Отказ = Истина;
+                    MessageBox.Show($"Поле {ColumnInfo.ColumnName} должно быть рациональным числом");
+                }
+                else if (ColumnInfo.LinkedTableName != null)
+                {
+                    string LinkedTablePrimaryKey = TableInfo.LinkedTableName_LinkedTablePrimaryKey[ColumnInfo.LinkedTableName];
+                    string check_query = $"SELECT 1 FROM {ColumnInfo.LinkedTableName} WHERE {LinkedTablePrimaryKey} = '{CurrentValue}'";
+                    if (db.GetDataTableByQuery(check_query).Rows.Count == 0)
+                    {
+                        Отказ = Истина;
+                        MessageBox.Show($"Поле {ColumnInfo.ColumnName} должно ссылаться на элемент таблицы {ColumnInfo.LinkedTableName}");
+                    }
+                }
+
+            }
+            
+            UpdateQuery += Where;
+
+            if (Отказ)
+                return;
+
+            int rowschanged = db.ExecuteNonQuery(UpdateQuery);
+            MessageBox.Show("rows changed " + rowschanged.ToString());
+
+            UpdateTableDelegate();
+            this.Focus();
         }
         private void WriteAndClose_Click(object sender, RoutedEventArgs e)
         {
@@ -102,23 +187,25 @@ namespace Cursovaya
             Close_Click(sender, e);
         }
 
-        private void Choosed(string Table, string PrimaryKeyValue)
+        private void Choosed(string Table, string LinkedTablePrimaryKeyValue)
         {
             ComboBox comboBox = FindComboBox(Table);
-            comboBox.Text = PrimaryKeyValue;
+            comboBox.Text = LinkedTablePrimaryKeyValue;
         }
 
         private void ComboBox_DropDownOpened(object sender, EventArgs e)
         {
             ComboBox comboBox = sender as ComboBox;
+            
             comboBox.IsDropDownOpen = false;
-            string Table = comboBox.Name;
-            string PrimaryKey = Table_PrimaryKey[Table];
+            
+            string LinkedTableName = comboBox.Name;
+            string LinkedTablePrimaryKey = TableInfo.LinkedTableName_LinkedTablePrimaryKey[LinkedTableName];
             string startPos = comboBox.Text;
 
             BackToElementForm del = new BackToElementForm(this.Choosed);
 
-            ФормаВыбора ChooseForm = new ФормаВыбора(Table, PrimaryKey, startPos, del);
+            ФормаВыбора ChooseForm = new ФормаВыбора(LinkedTableName, LinkedTablePrimaryKey, startPos, del);
             ChooseForm.Show();
         }
 
