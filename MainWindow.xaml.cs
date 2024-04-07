@@ -30,19 +30,20 @@ namespace Cursovaya
 
             CultureInfo ci = CultureInfo.CreateSpecificCulture(CultureInfo.CurrentCulture.Name);
             ci.DateTimeFormat.ShortDatePattern = "yyyy-MM-dd";
-            //ci.DateTimeFormat.FullDateTimePattern = "yyyy-MM-dd";
+            ci.DateTimeFormat.FullDateTimePattern = "yyyy-MM-dd";
             Thread.CurrentThread.CurrentCulture = ci;
 
             string query = "" +
-                "SELECT name " +
+                "SELECT name, type " +
                 "FROM sqlite_master " +
-                "WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+                "WHERE (type='table' OR type='view') AND name NOT LIKE 'sqlite_%'";
 
             DataTable Tables = db.GetDataTableByQuery(query);
 
             foreach(DataRow row in Tables.Rows)
             {
                 string TableName = row["Name"].ToString();
+                bool ThisIsView = row["type"].ToString() == "view";
                 if (true)
                 {
                     Button button = new Button();

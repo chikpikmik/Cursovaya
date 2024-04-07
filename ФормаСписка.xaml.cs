@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
+using System.IO.Packaging;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,17 +21,21 @@ namespace Cursovaya
     /// <summary>
     /// Логика взаимодействия для ФормаСписка.xaml
     /// </summary>
-    public delegate void UpdateTable();
+    public delegate void UpdateTable(TableUpdateTypes updateType);
+    public enum TableUpdateTypes { Insert, Update, Delete };
 
     public partial class ФормаСписка : Page
     {
-        private string TableName;
-        public ФормаСписка(string TableName)
+        private TableInfo TableInfo;
+
+        private Dictionary<string, string> Element = new Dictionary<string, string>();
+        public ФормаСписка(string tablename)
         {
             InitializeComponent();
-            this.TableName = TableName;
-            TextBlock_TableName.Text = TableName;
-            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableName}").DefaultView;
+            TextBlock_TableName.Text = tablename;
+            TableInfo = db.GetTableInfo(tablename);
+
+            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {tablename}").DefaultView;
         }
 
         private void Row_DoubleClick(object sender, MouseButtonEventArgs e)
@@ -45,35 +51,117 @@ namespace Cursovaya
 
                 for (int i = 0; i < columns.Count; i++)
                 {
-                    Element.Add(columns[i].ColumnName, rowValues[i].ToString());
+                    Element[columns[i].ColumnName] = rowValues[i].ToString();
                 }
 
                 UpdateTable del = new UpdateTable(this.UpdateTable);
 
-                ФормаЭлемента ElementForm = new ФормаЭлемента(Element, TableName, del);
-                ElementForm.Show();
+                ФормаЭлемента ElementForm = new ФормаЭлемента(Element, TableInfo, del, false);
+                ElementForm.ShowDialog();
 
             }
         }
+        private void Создать_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateTable del = new UpdateTable(this.UpdateTable);
 
+            ФормаЭлемента ElementForm = new ФормаЭлемента(Element, TableInfo, del, true);
+            ElementForm.ShowDialog();
+        }
 
-        private void UpdateTable()
+        private void Удалить_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedRows = DataGrid.SelectedItems;
+
+            string query = $"DELETE FROM {TableInfo.TableName} WHERE ";
+
+            for (int i = 0; i < selectedRows.Count; i++)
+            {
+                object[] RowValues = ((System.Data.DataRowView)selectedRows[i]).Row.ItemArray;
+
+                for (int j = 0; j < Element.Count; j++)
+                {
+                    // Добавить проверку на дату
+                    string Column = Element.ElementAt(j).Key;
+                    ColumnInfo ColumnInfo = TableInfo.ColumnName_ColumnInfo[Column];
+
+                    string Value = RowValues[j].ToString();
+
+                    if (ColumnInfo.Type == ColumnInfo.Types.DATE)
+                    {
+                        DateTime Date;
+                        if (DateTime.TryParseExact(
+                                Value,
+                                "yyyy-MM-dd H:mm:ss",
+                                CultureInfo.CurrentCulture,
+                                DateTimeStyles.None,
+                                out Date) ||
+                            DateTime.TryParseExact(
+                                Value,
+                                "yyyy-MM-dd",
+                                CultureInfo.CurrentCulture,
+                                DateTimeStyles.None,
+                                out Date))
+                            Value = Date.ToShortDateString();
+                        else
+                        {
+                            MessageBox.Show("Что то не то c удаляемой датой");
+                        }
+                    }
+
+                    query += $"{Column} = '{Value}' {(j + 1 == Element.Count ? "" : "AND")} ";
+
+                }
+
+                query += (i + 1 == selectedRows.Count ? "" : "OR ");
+            }
+
+            try
+            {
+                int rowschanged = db.ExecuteNonQuery(query);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return;
+            }
+
+            UpdateTable(TableUpdateTypes.Delete);
+        }
+
+        private void UpdateTable(TableUpdateTypes updateType)
         {
             int OldSelectedIndex = DataGrid.SelectedIndex;
-            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableName}").DefaultView;
-            DataGrid.SelectedItem = DataGrid.Items[OldSelectedIndex];
+            Element.Clear();
+
+            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableInfo.TableName}").DefaultView;
+            int newCount = DataGrid.Items.Count;
+
+            if (updateType == TableUpdateTypes.Update)
+                DataGrid.SelectedItem = DataGrid.Items[OldSelectedIndex];
+                
+            else if (updateType == TableUpdateTypes.Insert)
+                DataGrid.SelectedItem = DataGrid.Items[newCount-1];
+
+            else if (updateType == TableUpdateTypes.Delete)
+                DataGrid.SelectedItem = DataGrid.Items[newCount - 1];
+
             DataGrid.ScrollIntoView(DataGrid.SelectedItem);
             DataGrid.Focus();
         }
 
+        
+
         private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
             string header = e.Column.Header.ToString();
+            Element.Add(header, "");
             e.Column.Header = header.Replace("_", "__");
-            if (e.PropertyType == typeof(DateTime)) 
+            if (e.PropertyType == typeof(DateTime))
             {
                 (e.Column as DataGridTextColumn).Binding.StringFormat = "yyyy-MM-dd";
             }
         }
+
     }
 }

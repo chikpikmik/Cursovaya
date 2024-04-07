@@ -24,6 +24,7 @@
 
 
     <Grid>
+        
 
         <Button
             Style="{DynamicResource ButtonStyle}"
@@ -109,6 +110,16 @@
             HorizontalAlignment="Right" 
             Width="25"
             Height="25"/>
+        
+        <Label
+            Name="ElementTitle"
+            Content="ElementTitle" 
+            HorizontalAlignment="Left" 
+            Margin="15,4,0,0" 
+            VerticalAlignment="Top" 
+            FontSize="11" 
+            FontFamily="Candara Light" 
+            Foreground="Gray"/>
 
     </Grid>
 </Window>

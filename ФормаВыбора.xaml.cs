@@ -21,22 +21,23 @@ namespace Cursovaya
     /// </summary>
     public partial class ФормаВыбора : Window
     {
-        private string TableName;
+        private TableInfo TableInfo;
+        private Dictionary<string, string> Element = new Dictionary<string, string>();
         private string PrimaryKey;
-        private string startPos;
+        private string StartPos;
         private BackToElementForm BackToElementForm;
         
-        public ФормаВыбора(string TableName, string PrimaryKey, string startPos, BackToElementForm BackToElementForm)
+        public ФормаВыбора(string tablename, string primarykey, string startpos, BackToElementForm BackToElementForm)
         {
             InitializeComponent();
 
-            this.TableName = TableName;
-            this.PrimaryKey = PrimaryKey;
-            this.startPos = startPos;
+            TableInfo = db.GetTableInfo(tablename);
+            PrimaryKey = primarykey;
+            StartPos = startpos;
 
             this.BackToElementForm = BackToElementForm;
-            TextBlock_TableName.Text = TableName;
-            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableName}").DefaultView;
+            TextBlock_TableName.Text = TableInfo.TableName;
+            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {tablename}").DefaultView;
         }
 
 
@@ -68,7 +69,7 @@ namespace Cursovaya
                     foreach (var item in dataGrid.Items)
                     {
                         var rowArray = ((System.Data.DataRowView)item).Row.ItemArray;
-                        if (rowArray[ColumnPrimarykeyIndex].ToString() == startPos)
+                        if (rowArray[ColumnPrimarykeyIndex].ToString() == StartPos)
                         {
                             dataGrid.SelectedItem = item;
                             break;
@@ -97,16 +98,36 @@ namespace Cursovaya
             {
                 if (columns[i].ColumnName == PrimaryKey)
                 {
-                    BackToElementForm(TableName, rowValues[i].ToString());
+                    BackToElementForm(TableInfo.TableName, rowValues[i].ToString());
                     break;
                 }
             }
             this.Close();
         }
 
+        private void Создать_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateTable del = new UpdateTable(this.UpdateTable);
+
+            ФормаЭлемента ElementForm = new ФормаЭлемента(Element, TableInfo, del, true);
+            ElementForm.Show();
+        }
+        private void UpdateTable(TableUpdateTypes updateType)
+        {
+            int OldSelectedIndex = DataGrid.SelectedIndex;
+            Element.Clear();
+
+            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableInfo.TableName}").DefaultView;
+            DataGrid.SelectedItem = DataGrid.Items[OldSelectedIndex];
+            DataGrid.ScrollIntoView(DataGrid.SelectedItem);
+            DataGrid.Focus();
+
+        }
+
         private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
         {
             string header = e.Column.Header.ToString();
+            Element.Add(header, "");
             e.Column.Header = header.Replace("_", "__");
             if (e.PropertyType == typeof(DateTime))
             {

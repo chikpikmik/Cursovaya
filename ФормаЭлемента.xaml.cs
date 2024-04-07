@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
+using System.IO;
 using System.IO.Packaging;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,15 +31,19 @@ namespace Cursovaya
     {
         public Dictionary<string, string> Element;
         public TableInfo TableInfo;
+        Control PrimaryKeyField;
         private UpdateTable UpdateTableDelegate;
-        public ФормаЭлемента(Dictionary<string, string> element, string tablename, UpdateTable updatetable)
+        private bool ThisIsNewElement;
+        public ФормаЭлемента(Dictionary<string, string> element, TableInfo tableinfo, UpdateTable updatetable, bool thisisnewelement)
         {
             InitializeComponent();
+            // если ThisIsNewElement то element содержит пустые значения
             Element = element;
+            TableInfo = tableinfo;
             UpdateTableDelegate = updatetable;
-
-            TableInfo = db.GetTableInfo(tablename);
-
+            ThisIsNewElement = thisisnewelement;
+            ElementTitle.Content = ThisIsNewElement ? "Создание записи" : "Редактирование записи" ;
+            
             foreach (var ColumnName_Value in Element)
             {
                 ColumnInfo ColumnInfo = TableInfo.ColumnName_ColumnInfo[ColumnName_Value.Key];
@@ -76,24 +82,37 @@ namespace Cursovaya
                     textBox.Text = ColumnName_Value.Value;
                     Box = textBox;
                 }
-                Box.Focusable = !ColumnInfo.IsItPrimaryKey;
+
+
+                if (ColumnInfo.IsItPrimaryKey)
+                {
+                    PrimaryKeyField = Box;
+                    if (ThisIsNewElement && Box is TextBox textBox && ColumnInfo.Type==ColumnInfo.Types.INTEGER)
+                        textBox.Text = db.GetAutoIncrement(TableInfo.TableName, ColumnInfo.ColumnName).ToString();
+                }
+
+                // Нельзя менять PrimaryKey если элемент изменяется, но можно его задать при создании
+                Box.IsEnabled = ThisIsNewElement || !ColumnInfo.IsItPrimaryKey;
                 ЗначенияРеквизитов.Children.Add(Box);
             }
 
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e)
-        {
-            this.Close();
-        }
 
-        private void Write_Click(object sender, RoutedEventArgs e)
+        private void Write(bool CLoseAfter=false)
         {
             bool Отказ = false;
             bool Истина = true;
 
+            // Изменение строки
             string UpdateQuery = $"UPDATE {TableInfo.TableName} SET ";
             string Where = "WHERE ";
+
+            // Добавление строки
+            string AddQuery = $"INSERT INTO {TableInfo.TableName}({string.Join(", " , Element.Keys)}) VALUES ";
+
+
+            Dictionary<string, string> NewElement = new Dictionary<string, string>();
 
             for (int i=0; i < Element.Count; i++)
             {
@@ -112,30 +131,39 @@ namespace Cursovaya
                 else
                     continue;
 
-                // Создание запроса
+
+                // Обновление данных Element
+                NewElement.Add(ColumnInfo.ColumnName,CurrentValue);
+
+                // Запрос изменения. Primary key нельзя обновлять, но нужно указывать в Where
                 bool NextIsPrimaryKey_AndThisIsEnd = ((i+1)+1 == Element.Count) && TableInfo.ColumnName_ColumnInfo.ElementAt(i+1).Value.IsItPrimaryKey;
                 bool CurrentIsEnd = i + 1 == Element.Count;
                 if (!ColumnInfo.IsItPrimaryKey)
                     UpdateQuery += $"{ColumnInfo.ColumnName} = '{CurrentValue}'{( CurrentIsEnd || NextIsPrimaryKey_AndThisIsEnd ? "" : ",")} ";
 
+                // Если элемент новый то старой даты указано не будет, кроме того запрос обновления не увидит свет
                 string OldValue = CurrenElement.Value;
-                if (ColumnInfo.Type == ColumnInfo.Types.DATE)
+                if (ColumnInfo.Type == ColumnInfo.Types.DATE && !ThisIsNewElement)
                 {
                     DateTime OldDate;
-                    if (!DateTime.TryParseExact(
+                    if (DateTime.TryParseExact(
                             OldValue,
                             "yyyy-MM-dd H:mm:ss",
                             CultureInfo.CurrentCulture,
                             DateTimeStyles.None,
+                            out OldDate) ||
+                        DateTime.TryParseExact(
+                            OldValue,
+                            "yyyy-MM-dd",
+                            CultureInfo.CurrentCulture,
+                            DateTimeStyles.None,
                             out OldDate))
+                        OldValue = OldDate.ToShortDateString();
+                    else
                     {
                         //Отказ = Истина;
                         MessageBox.Show("Что то не то со старой датой");
                         //continue;
-                    }
-                    else
-                    {
-                        OldValue = OldDate.ToShortDateString();
                     }
                 }
                 Where += $"{ColumnInfo.ColumnName} = '{OldValue}'{( CurrentIsEnd ? "" : " AND ")} ";
@@ -170,26 +198,63 @@ namespace Cursovaya
 
             }
             
+            // Завершение запроса изменения
             UpdateQuery += Where;
+
+            // Завершение запроса добавления
+            AddQuery += $"('{string.Join("', '", NewElement.Values)}')";
 
             if (Отказ)
                 return;
 
-            int rowschanged = db.ExecuteNonQuery(UpdateQuery);
-            MessageBox.Show("rows changed " + rowschanged.ToString());
+            string Query                = ThisIsNewElement ? AddQuery : UpdateQuery;
+            TableUpdateTypes updateType = ThisIsNewElement ? TableUpdateTypes.Insert : TableUpdateTypes.Update;
 
-            UpdateTableDelegate();
+            // Проверок сверху может не хватить
+            try
+            {
+                int rowschanged = db.ExecuteNonQuery(Query);
+            }
+            catch (Exception ex) 
+            {
+                MessageBox.Show(ex.Message);
+                return;
+            }
+
+            // После успешного завершения запроса, элемент уже не новый
+            ThisIsNewElement = false;
+            ElementTitle.Content = "Редактирование записи";
+            if (TableInfo.PrimaryKey != null)
+                PrimaryKeyField.IsEnabled = false;
+
+            // Обновление данных
+            Element = NewElement;
+
+            // Обновлание таблицы в форме списка
+            UpdateTableDelegate(updateType);
             this.Focus();
+
+            if (CLoseAfter)
+                this.Close();
+        }
+
+        private void Write_Click(object sender, RoutedEventArgs e)
+        {
+            Write();
         }
         private void WriteAndClose_Click(object sender, RoutedEventArgs e)
         {
-            Write_Click(sender, e);
-            Close_Click(sender, e);
+            Write(true);
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
         }
 
         private void Choosed(string Table, string LinkedTablePrimaryKeyValue)
         {
-            ComboBox comboBox = FindComboBox(Table);
+            ComboBox comboBox = FindControlByName(Table) as ComboBox;
             comboBox.Text = LinkedTablePrimaryKeyValue;
         }
 
@@ -206,16 +271,16 @@ namespace Cursovaya
             BackToElementForm del = new BackToElementForm(this.Choosed);
 
             ФормаВыбора ChooseForm = new ФормаВыбора(LinkedTableName, LinkedTablePrimaryKey, startPos, del);
-            ChooseForm.Show();
+            ChooseForm.ShowDialog();
         }
 
-        public ComboBox FindComboBox(string name)
+        public Control FindControlByName(string name)
         {
             foreach (Control control in ЗначенияРеквизитов.Children)
             {
-                if (control is ComboBox comboBox && control.Name == name)
+                if (control.Name == name)
                 {
-                    return comboBox;
+                    return control;
                 }
             }
 

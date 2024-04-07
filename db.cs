@@ -7,6 +7,7 @@ using System.Data.SQLite;
 using System.Data;
 using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
 using static Cursovaya.ColumnInfo;
+using System.Windows.Markup;
 
 namespace Cursovaya
 {
@@ -30,12 +31,14 @@ namespace Cursovaya
     public class TableInfo
     {
         public string TableName;
+        public string PrimaryKey;
         public Dictionary<string, ColumnInfo> ColumnName_ColumnInfo;
         public Dictionary<string, string> LinkedTableName_LinkedTablePrimaryKey;
 
-        public TableInfo(string tableName, Dictionary<string, ColumnInfo> columnName_ColumnInfo, Dictionary<string, string> linkedTableName_LinkedTablePrimaryKey)
+        public TableInfo(string tableName, string primarykey, Dictionary<string, ColumnInfo> columnName_ColumnInfo, Dictionary<string, string> linkedTableName_LinkedTablePrimaryKey)
         {
             TableName = tableName;
+            PrimaryKey = primarykey;
             ColumnName_ColumnInfo = columnName_ColumnInfo;
             LinkedTableName_LinkedTablePrimaryKey = linkedTableName_LinkedTablePrimaryKey;
         }
@@ -63,6 +66,9 @@ namespace Cursovaya
             LinkedTableName = linkedTableName;
         }
     }
+
+    public enum AccessRights { Чтение, Запись };
+
     public class db
     {
         private static string fullPath = @"C:\Users\Lolban\Projects\Cursovaya\db.db";
@@ -72,7 +78,7 @@ namespace Cursovaya
 
             string queryString = "SELECT Name, Password, id FROM Users";
 
-            
+
             using (SQLiteConnection connection = new SQLiteConnection($"Data Source={fullPath}; Version=3;"))
             {
                 connection.Open();
@@ -97,6 +103,12 @@ namespace Cursovaya
             return Users;
         }
 
+        static public Dictionary<string, AccessRights> GetAccessRights(int UserId)
+        {
+            Dictionary<string, AccessRights> keyValuePairs = new Dictionary<string, AccessRights>();
+            return keyValuePairs;
+        }
+
         static public TableInfo GetTableInfo(string TableName) 
         {
             string queryString = "" +
@@ -115,7 +127,7 @@ namespace Cursovaya
 
             Dictionary<string, ColumnInfo> ColumnName_ColumnInfo             = new Dictionary<string, ColumnInfo>();
             Dictionary<string, string> LinkedTableName_LinkedTablePrimaryKey = new Dictionary<string, string>();
-
+            string PrimaryKey = null;
 
             using (SQLiteConnection connection = new SQLiteConnection($"Data Source={fullPath}; Version=3;"))
             {
@@ -148,12 +160,51 @@ namespace Cursovaya
                             if (LinkedTable != null)
                                 LinkedTableName_LinkedTablePrimaryKey.Add(LinkedTable, LinkedTablePrimaryKey);
 
+                            if (IsItPrimaryKey)
+                                PrimaryKey = Column;
+
                         }
                     }
                 }
             }
 
-            return new TableInfo(TableName, ColumnName_ColumnInfo, LinkedTableName_LinkedTablePrimaryKey);
+            return new TableInfo(TableName, PrimaryKey, ColumnName_ColumnInfo, LinkedTableName_LinkedTablePrimaryKey);
+
+        }
+
+        static public int GetAutoIncrement(string TableName, string Column) 
+        {
+            string queryString = "" +
+                "WITH RECURSIVE cte_numbers AS ( " +
+                    "SELECT 1 AS num " +
+                    "UNION ALL " +
+                    "SELECT num + 1 " +
+                    "FROM cte_numbers " +
+                    $"WHERE num <= (SELECT MAX({Column}) FROM {TableName})) " +
+                "SELECT MIN(num) AS missing_num " +
+                "FROM cte_numbers " +
+                $"WHERE num NOT IN (SELECT {Column} FROM {TableName})";
+
+            int result = -1;
+
+            using (SQLiteConnection connection = new SQLiteConnection($"Data Source={fullPath}; Version=3;"))
+            {
+                connection.Open();
+
+                using (SQLiteCommand command = new SQLiteCommand(queryString, connection))
+                {
+                    using (SQLiteDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+
+                            result = reader.GetInt32(0);
+
+                        }
+                    }
+                }
+            }
+            return result;
 
         }
 

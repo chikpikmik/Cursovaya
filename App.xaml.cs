@@ -14,5 +14,6 @@ namespace Cursovaya
     public partial class App : Application
     {
         public static User CurrentUser;
+        public static Dictionary<string, AccessRights> UserAccess;
     }
 }

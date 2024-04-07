@@ -18,6 +18,8 @@
             FontSize="14"
             Margin="20,70,20,30"
             CanUserAddRows="False"
+            CanUserReorderColumns="False"
+            CanUserDeleteRows="False"
             IsReadOnly="True" 
             ColumnWidth="*"
             HeadersVisibility="Column"
@@ -30,10 +32,37 @@
             CanUserResizeRows="False"
             >
             <DataGrid.RowStyle>
+                
                 <Style TargetType="DataGridRow">
                     <EventSetter 
                         Event="MouseDoubleClick" 
                         Handler="Row_DoubleClick"/>
+
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu 
+                                Focusable="False">
+                                <MenuItem
+                                    Focusable="False"
+                                    Header="Удалить выбранное"
+                                    >
+                                    <MenuItem.Icon>
+                                        <Path
+                                            Fill="Red"
+                                            Margin="-4,-4,0,0"
+                                            Data="M12 4c-4.419 0-8 3.582-8 8s3.581 8 8 8 8-3.582 8-8-3.581-8-8-8zm3.707 10.293c.391.391.391 1.023 0 1.414-.195.195-.451.293-.707.293s-.512-.098-.707-.293l-2.293-2.293-2.293 2.293c-.195.195-.451.293-.707.293s-.512-.098-.707-.293c-.391-.391-.391-1.023 0-1.414l2.293-2.293-2.293-2.293c-.391-.391-.391-1.023 0-1.414s1.023-.391 1.414 0l2.293 2.293 2.293-2.293c.391-.391 1.023-.391 1.414 0s.391 1.023 0 1.414l-2.293 2.293 2.293 2.293z"
+                                            />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <ContextMenu.Resources>
+                                    <Style TargetType="MenuItem">
+                                        <EventSetter Event="Click" Handler="Удалить_Click"/>
+                                    </Style>
+                                </ContextMenu.Resources>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
+
                     <Style.Resources>
                         <SolidColorBrush 
                             x:Key="{x:Static SystemColors.HighlightBrushKey}" 
@@ -48,6 +77,7 @@
             <DataGrid.CellStyle>
                 <Style TargetType="DataGridCell">
                     <Setter Property="BorderThickness" Value="2"/>
+                    
                     <Style.Triggers>
                         <Trigger Property="IsFocused" Value="True">
                             <Setter Property="BorderBrush" Value="#FFF9C70A"/>
@@ -67,8 +97,8 @@
             VerticalAlignment="Top"/>
         <Button 
             Style="{DynamicResource ButtonStyle}"
-            BorderBrush="Gray"
             Content="Создать"
+            Click="Создать_Click"
             HorizontalAlignment="Left" 
             Margin="20,40,0,0" 
             VerticalAlignment="Top" 
