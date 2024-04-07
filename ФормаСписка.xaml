@@ -41,7 +41,8 @@
                     <Setter Property="ContextMenu">
                         <Setter.Value>
                             <ContextMenu 
-                                Focusable="False">
+                                Focusable="False"
+                                >
                                 <MenuItem
                                     Focusable="False"
                                     Header="Удалить выбранное"
@@ -96,6 +97,7 @@
             Text="TextBlock_TableName" 
             VerticalAlignment="Top"/>
         <Button 
+            Name="Создать_Button"
             Style="{DynamicResource ButtonStyle}"
             Content="Создать"
             Click="Создать_Click"

@@ -23,19 +23,18 @@ namespace Cursovaya
     {
         private TableInfo TableInfo;
         private Dictionary<string, string> Element = new Dictionary<string, string>();
-        private string PrimaryKey;
         private string StartPos;
         private BackToElementForm BackToElementForm;
         
-        public ФормаВыбора(string tablename, string primarykey, string startpos, BackToElementForm BackToElementForm)
+        public ФормаВыбора(string tablename, string startpos, BackToElementForm backtoelementform)
         {
             InitializeComponent();
 
             TableInfo = db.GetTableInfo(tablename);
-            PrimaryKey = primarykey;
             StartPos = startpos;
+            Создать_Button.IsEnabled = App.UserAccess[tablename] == AccessRights.Запись;
 
-            this.BackToElementForm = BackToElementForm;
+            BackToElementForm = backtoelementform;
             TextBlock_TableName.Text = TableInfo.TableName;
             DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {tablename}").DefaultView;
         }
@@ -54,7 +53,7 @@ namespace Cursovaya
                 int ColumnPrimarykeyIndex=-1;
 
                 // нужно так как в headers заменяется тоже
-                string PrimaryKey2 = PrimaryKey.Replace("_", "__");
+                string PrimaryKey2 = TableInfo.PrimaryKey.Replace("_", "__");
 
                 for (int i = 0; i < columns.Count; i++)
                 {
@@ -96,7 +95,7 @@ namespace Cursovaya
 
             for (int i = 0; i < columns.Count; i++)
             {
-                if (columns[i].ColumnName == PrimaryKey)
+                if (columns[i].ColumnName == TableInfo.PrimaryKey)
                 {
                     BackToElementForm(TableInfo.TableName, rowValues[i].ToString());
                     break;

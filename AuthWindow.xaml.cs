@@ -42,7 +42,7 @@ namespace Cursovaya
             else if (Users[UserId].Password == Password)
             {
                 App.CurrentUser = Users[UserId];
-                App.UserAccess = db.GetAccessRights(UserId);
+                App.UserAccess = db.GetUserAccessRights(UserId);
                 MainWindow MainWindow = new MainWindow();
                 MainWindow.Show();
                 this.Close();

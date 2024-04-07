@@ -35,6 +35,17 @@ namespace Cursovaya
             TextBlock_TableName.Text = tablename;
             TableInfo = db.GetTableInfo(tablename);
 
+            if( App.UserAccess[tablename] != AccessRights.Запись || TableInfo.Type == TableInfo.Types.view )
+            {
+                Создать_Button.IsEnabled = false;
+
+                // Это контекстное меню
+                DataGrid.RowStyle.Setters.RemoveAt(1);
+                // Это событие при двойном щелчке по строке
+                DataGrid.RowStyle.Setters.RemoveAt(0);
+            }
+            
+
             DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {tablename}").DefaultView;
         }
 

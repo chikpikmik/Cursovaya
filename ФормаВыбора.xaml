@@ -50,6 +50,7 @@
             Click="Choose"
             Focusable="False"/>
         <Button
+            Name="Создать_Button"
             Click="Создать_Click"
             Style="{DynamicResource ButtonStyle}"
             Content="Создать" 

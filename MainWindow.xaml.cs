@@ -33,18 +33,11 @@ namespace Cursovaya
             ci.DateTimeFormat.FullDateTimePattern = "yyyy-MM-dd";
             Thread.CurrentThread.CurrentCulture = ci;
 
-            string query = "" +
-                "SELECT name, type " +
-                "FROM sqlite_master " +
-                "WHERE (type='table' OR type='view') AND name NOT LIKE 'sqlite_%'";
 
-            DataTable Tables = db.GetDataTableByQuery(query);
-
-            foreach(DataRow row in Tables.Rows)
+            foreach( var Access in App.UserAccess )
             {
-                string TableName = row["Name"].ToString();
-                bool ThisIsView = row["type"].ToString() == "view";
-                if (true)
+                string TableName = Access.Key;
+                if (Access.Value != AccessRights.НетДоступа)
                 {
                     Button button = new Button();
                     button.Content = TableName;

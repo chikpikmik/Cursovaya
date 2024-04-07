@@ -260,17 +260,24 @@ namespace Cursovaya
 
         private void ComboBox_DropDownOpened(object sender, EventArgs e)
         {
+
             ComboBox comboBox = sender as ComboBox;
             
             comboBox.IsDropDownOpen = false;
-            
+
             string LinkedTableName = comboBox.Name;
-            string LinkedTablePrimaryKey = TableInfo.LinkedTableName_LinkedTablePrimaryKey[LinkedTableName];
+
+            if (App.UserAccess[TableInfo.TableName] == AccessRights.НетДоступа)
+            {
+                MessageBox.Show($"У вас нет доступа к таблице {LinkedTableName}, связанной с этим полем");
+                return;
+            }
+
             string startPos = comboBox.Text;
 
             BackToElementForm del = new BackToElementForm(this.Choosed);
 
-            ФормаВыбора ChooseForm = new ФормаВыбора(LinkedTableName, LinkedTablePrimaryKey, startPos, del);
+            ФормаВыбора ChooseForm = new ФормаВыбора(LinkedTableName, startPos, del);
             ChooseForm.ShowDialog();
         }
 
