@@ -33,16 +33,20 @@ namespace Cursovaya
     {
         public string TableName;
         public string PrimaryKey;
+        public string СвязанныйРегистр;
+        public string РесурсСвязянногоРегистра;
         public enum Types {table, view};   
         public Types Type;
         
         public Dictionary<string, ColumnInfo> ColumnName_ColumnInfo;
         public Dictionary<string, string> LinkedTableName_LinkedTablePrimaryKey;
 
-        public TableInfo(string tableName, string primarykey, Types type, Dictionary<string, ColumnInfo> columnName_ColumnInfo, Dictionary<string, string> linkedTableName_LinkedTablePrimaryKey)
+        public TableInfo(string tableName, string primarykey, string связанныйрегистр, string ресурссвязянногорегистра, Types type, Dictionary<string, ColumnInfo> columnName_ColumnInfo, Dictionary<string, string> linkedTableName_LinkedTablePrimaryKey)
         {
             TableName = tableName;
             PrimaryKey = primarykey;
+            СвязанныйРегистр = связанныйрегистр;
+            РесурсСвязянногоРегистра = ресурссвязянногорегистра;
             Type = type;
             ColumnName_ColumnInfo = columnName_ColumnInfo;
             LinkedTableName_LinkedTablePrimaryKey = linkedTableName_LinkedTablePrimaryKey;
@@ -51,6 +55,7 @@ namespace Cursovaya
     public class ColumnInfo
     {
         public bool NotNull;
+        public bool ЭтоРесурсСвязанногоРегистра;
         public enum Types{
             INTEGER, 
             REAL,
@@ -62,11 +67,12 @@ namespace Cursovaya
         public string LinkedTableName;
         public string ColumnName;
 
-        public ColumnInfo(string columnname, Types type, bool notNull, bool isItPrimaryKey, string linkedTableName=null)
+        public ColumnInfo(string columnname, Types type, bool notNull, bool эторесурссвязанногорегистра, bool isItPrimaryKey, string linkedTableName=null)
         {
             ColumnName = columnname;
             Type = type;
             NotNull = notNull;
+            ЭтоРесурсСвязанногоРегистра = эторесурссвязанногорегистра;
             IsItPrimaryKey = isItPrimaryKey;
             LinkedTableName = linkedTableName;
         }
@@ -151,9 +157,10 @@ namespace Cursovaya
         static public TableInfo GetTableInfo(string TableName) 
         {
             string queryAboutTableType = "" +
-                "SELECT type " +
-                "FROM sqlite_master " +
-                $"WHERE (type='table' OR type='view') AND name = '{TableName}' ";
+                "SELECT sm.type, l.Регистр, l.Ресурс " +
+                "FROM sqlite_master sm " +
+                "LEFT JOIN СвязьТаблицИРегистров l ON l.Таблица=sm.name " +
+                $"WHERE (sm.type='table' OR sm.type='view') AND sm.name = '{TableName}' ";
 
             string queryAboutColumns = "" +
                 "SELECT " +
@@ -172,6 +179,8 @@ namespace Cursovaya
             Dictionary<string, ColumnInfo> ColumnName_ColumnInfo             = new Dictionary<string, ColumnInfo>();
             Dictionary<string, string> LinkedTableName_LinkedTablePrimaryKey = new Dictionary<string, string>();
             string PrimaryKey = null;
+            string СвязанныйРегистр=null;
+            string РесурсСвязянногоРегистра=null;
             TableInfo.Types TableType = TableInfo.Types.table;
 
             using (SQLiteConnection connection = new SQLiteConnection($"Data Source={fullPath}; Version=3;"))
@@ -185,6 +194,11 @@ namespace Cursovaya
                         while (reader.Read())
                         {
                             TableType = reader.GetString(0)=="view" ? TableInfo.Types.view : TableInfo.Types.table;
+                            if (!reader.IsDBNull(1))
+                            {
+                                СвязанныйРегистр = reader.GetString(1);
+                                РесурсСвязянногоРегистра = reader.GetString(2);
+                            }
                         }
                     }
                 }
@@ -208,7 +222,8 @@ namespace Cursovaya
                                 Column,
                                 (Type == "INTEGER" ? ColumnInfo.Types.INTEGER : (Type == "REAL" ? ColumnInfo.Types.REAL :(Type == "DATE" ? ColumnInfo.Types.DATE : ColumnInfo.Types.TEXT))),
                                 NotNullVal,
-                                IsItPrimaryKey, 
+                                Column == РесурсСвязянногоРегистра,
+                                IsItPrimaryKey,
                                 LinkedTable);
                             
                             ColumnName_ColumnInfo.Add(Column, ColInf);
@@ -224,7 +239,7 @@ namespace Cursovaya
                 }
             }
 
-            return new TableInfo(TableName, PrimaryKey, TableType, ColumnName_ColumnInfo, LinkedTableName_LinkedTablePrimaryKey);
+            return new TableInfo(TableName, PrimaryKey, СвязанныйРегистр, РесурсСвязянногоРегистра, TableType, ColumnName_ColumnInfo, LinkedTableName_LinkedTablePrimaryKey);
 
         }
 
@@ -299,6 +314,18 @@ namespace Cursovaya
                 }
             }
         }
-    
+
+        static public void ДобавитьЗаписьВРегистр(string RegisterName, string TableName, string TablePrimaryKeyValue, string ИмяРесурса , string ЗначениеРесурса, DateTime date) 
+        {
+            var RegInfo = GetTableInfo(RegisterName);
+            string TableForeignKeyName = RegInfo.ColumnName_ColumnInfo.FirstOrDefault(pair => pair.Value.LinkedTableName==TableName).Key;
+
+            string query = "" +
+                $"INSERT INTO {RegisterName}(Дата, {TableForeignKeyName}, {ИмяРесурса}) " +
+                $"VALUES ('{date.ToShortDateString()}', '{TablePrimaryKeyValue}', '{ЗначениеРесурса}')";
+
+            ExecuteNonQuery(query);
+        }
+
     }
 }

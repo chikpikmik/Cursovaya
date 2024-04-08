@@ -18,6 +18,7 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.TextFormatting;
 using System.Windows.Shapes;
 using System.Xml.Linq;
 
@@ -32,6 +33,7 @@ namespace Cursovaya
         public Dictionary<string, string> Element;
         public TableInfo TableInfo;
         Control PrimaryKeyField;
+        DatePicker ДатаЗаписиВРегистр=null;
         private UpdateTable UpdateTableDelegate;
         private bool ThisIsNewElement;
         public ФормаЭлемента(Dictionary<string, string> element, TableInfo tableinfo, UpdateTable updatetable, bool thisisnewelement)
@@ -95,7 +97,17 @@ namespace Cursovaya
                 Box.IsEnabled = ThisIsNewElement || !ColumnInfo.IsItPrimaryKey;
                 ЗначенияРеквизитов.Children.Add(Box);
             }
-
+            
+            if (TableInfo.СвязанныйРегистр != null)
+            {
+                DatePicker datePicker = new DatePicker();
+                datePicker.SelectedDate = DateTime.Now;
+                Label label = new Label();
+                label.Content = "Дата записи в регистр:";
+                ДатаЗаписиВРегистр = datePicker;
+                Реквизиты.Children.Add(label);
+                ЗначенияРеквизитов.Children.Add(datePicker);
+            }
         }
 
 
@@ -169,18 +181,18 @@ namespace Cursovaya
                 Where += $"{ColumnInfo.ColumnName} = '{OldValue}'{( CurrentIsEnd ? "" : " AND ")} ";
 
 
-                if (CurrentValue.Equals(string.Empty) && ColumnInfo.NotNull)
+                if (CurrentValue==string.Empty && ColumnInfo.NotNull)
                 {
                     Отказ = Истина;
                     MessageBox.Show($"Поле {ColumnInfo.ColumnName} обязательно для заполнения");
                     continue;
                 }
-                else if ( (! int.TryParse(CurrentValue, out int _)) && ColumnInfo.Type == ColumnInfo.Types.INTEGER)
+                else if ((!int.TryParse(CurrentValue, out int _)) && ColumnInfo.Type == ColumnInfo.Types.INTEGER)
                 {
                     Отказ = Истина;
                     MessageBox.Show($"Поле {ColumnInfo.ColumnName} должно быть целым числом");
                 }
-                else if ((! double.TryParse(CurrentValue, out double _)) && ColumnInfo.Type == ColumnInfo.Types.REAL)
+                else if ((!double.TryParse(CurrentValue, out double _)) && ColumnInfo.Type == ColumnInfo.Types.REAL)
                 {
                     Отказ = Истина;
                     MessageBox.Show($"Поле {ColumnInfo.ColumnName} должно быть рациональным числом");
@@ -204,11 +216,20 @@ namespace Cursovaya
             // Завершение запроса добавления
             AddQuery += $"('{string.Join("', '", NewElement.Values)}')";
 
-            if (Отказ)
-                return;
 
             string Query                = ThisIsNewElement ? AddQuery : UpdateQuery;
-            TableUpdateTypes updateType = ThisIsNewElement ? TableUpdateTypes.Insert : TableUpdateTypes.Update;
+            TableUpdateTypes updateType = ThisIsNewElement ? TableUpdateTypes.INSERT : TableUpdateTypes.UPDATE;
+
+            // Проверка заполнения даты записи в регистр в случае если это нужно
+            string РесСвРег = TableInfo.РесурсСвязянногоРегистра;
+            if (РесСвРег!=null && ДатаЗаписиВРегистр.SelectedDate == null && (Element[РесСвРег] != NewElement[РесСвРег] || ThisIsNewElement))
+            {
+                Отказ = Истина;
+                MessageBox.Show("Заполните дату записи в регистр");
+            }
+
+            if (Отказ)
+                return;
 
             // Проверок сверху может не хватить
             try
@@ -220,6 +241,34 @@ namespace Cursovaya
                 MessageBox.Show(ex.Message);
                 return;
             }
+
+            // Запись изменения в регистр в случае наличия изменения
+            if (РесСвРег != null)
+            {
+                bool continueflag = true;
+                if (!ThisIsNewElement && Element[РесСвРег] == NewElement[РесСвРег]) 
+                {
+                    string messageBoxText = $"Значние ресурса связанного регистра {РесСвРег} не изменилось, хотите создать запись в связанном регистре?";
+                    string caption = "Word Processor";
+                    MessageBoxButton button = MessageBoxButton.YesNo;
+                    MessageBoxImage icon = MessageBoxImage.Warning;
+                    MessageBoxResult result;
+
+                    result = MessageBox.Show(messageBoxText, caption, button, icon, MessageBoxResult.No);
+                    continueflag = result == MessageBoxResult.Yes;
+                }
+                if (continueflag) 
+                {
+                    db.ДобавитьЗаписьВРегистр(
+                        TableInfo.СвязанныйРегистр, 
+                        TableInfo.TableName,
+                        NewElement[TableInfo.PrimaryKey],
+                        РесСвРег,
+                        NewElement[РесСвРег],
+                        (DateTime)ДатаЗаписиВРегистр.SelectedDate);
+                }
+            }
+
 
             // После успешного завершения запроса, элемент уже не новый
             ThisIsNewElement = false;

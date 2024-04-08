@@ -22,7 +22,7 @@ namespace Cursovaya
     /// Логика взаимодействия для ФормаСписка.xaml
     /// </summary>
     public delegate void UpdateTable(TableUpdateTypes updateType);
-    public enum TableUpdateTypes { Insert, Update, Delete };
+    public enum TableUpdateTypes { INSERT, UPDATE, DELETE };
 
     public partial class ФормаСписка : Page
     {
@@ -137,7 +137,7 @@ namespace Cursovaya
                 return;
             }
 
-            UpdateTable(TableUpdateTypes.Delete);
+            UpdateTable(TableUpdateTypes.DELETE);
         }
 
         private void UpdateTable(TableUpdateTypes updateType)
@@ -148,13 +148,13 @@ namespace Cursovaya
             DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {TableInfo.TableName}").DefaultView;
             int newCount = DataGrid.Items.Count;
 
-            if (updateType == TableUpdateTypes.Update)
+            if (updateType == TableUpdateTypes.UPDATE)
                 DataGrid.SelectedItem = DataGrid.Items[OldSelectedIndex];
                 
-            else if (updateType == TableUpdateTypes.Insert)
+            else if (updateType == TableUpdateTypes.INSERT)
                 DataGrid.SelectedItem = DataGrid.Items[newCount-1];
 
-            else if (updateType == TableUpdateTypes.Delete)
+            else if (updateType == TableUpdateTypes.DELETE)
                 DataGrid.SelectedItem = DataGrid.Items[newCount - 1];
 
             DataGrid.ScrollIntoView(DataGrid.SelectedItem);
