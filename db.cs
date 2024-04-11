@@ -78,6 +78,34 @@ namespace Cursovaya
         }
     }
 
+    public class ReportInfo 
+    {
+        public string Name;
+        public string Query;
+        public Dictionary<string, ParameterInfo> Parameters = new Dictionary<string,ParameterInfo>();
+        public int id;
+        public ReportInfo(string name, string query, int id_)
+        {
+            Name = name;
+            Query = query;
+            id = id_;
+        }
+        public override string ToString()
+        {
+            return Name;
+        }
+    }
+    public class ParameterInfo 
+    {
+        public string Name;
+        public ColumnInfo.Types Type;
+        public ParameterInfo(string name, ColumnInfo.Types type)
+        {
+            Name = name;
+            Type = type;
+        }
+    }
+
     public enum AccessRights { НетДоступа, Чтение, Запись };
 
     public class db
@@ -112,6 +140,51 @@ namespace Cursovaya
             }
 
             return Users;
+        }
+
+
+        static public List<ReportInfo> GetReportsList()
+        {
+            List<ReportInfo> Reports = new List<ReportInfo>();
+
+            string queryString = "" +
+                "SELECT a.Отчет_id, b.Название AS Отчет, b.Запрос, a.Название AS Параметр, a.Тип " +
+                "FROM ПараметрыОтчетов a " +
+                "RIGHT JOIN " +
+                "Отчеты b ON a.Отчет_id = b.id";
+
+
+            using (SQLiteConnection connection = new SQLiteConnection($"Data Source={fullPath}; Version=3;"))
+            {
+                connection.Open();
+
+                using (SQLiteCommand command = new SQLiteCommand(queryString, connection))
+                {
+                    using (SQLiteDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int Отчет_id = reader.GetInt32(0);
+                            string Отчет = reader.GetString(1);
+                            string Запрос = reader.GetString(2);
+                            string Параметр = reader.GetString(3);
+                            ColumnInfo.Types ТипПараметра = (reader.GetString(4) == "INTEGER" ? ColumnInfo.Types.INTEGER : (reader.GetString(4) == "REAL" ? ColumnInfo.Types.REAL : (reader.GetString(4) == "DATE" ? ColumnInfo.Types.DATE : ColumnInfo.Types.TEXT)));
+                            
+                            ReportInfo report = Reports.Find(p => p.id == Отчет_id);
+
+                            if (report == null)
+                            {
+                                report = new ReportInfo(Отчет, Запрос, Отчет_id);
+                                Reports.Add(report);
+                            }
+                            
+                            report.Parameters.Add(Параметр, new ParameterInfo(Параметр, ТипПараметра));
+                        }
+                    }
+                }
+            }
+
+            return Reports;
         }
 
         static public Dictionary<string, AccessRights> GetUserAccessRights(int UserId)

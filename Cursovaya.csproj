@@ -77,6 +77,9 @@
     <Compile Include="ФормаВыбора.xaml.cs">
       <DependentUpon>ФормаВыбора.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ФормаОтчета.xaml.cs">
+      <DependentUpon>ФормаОтчета.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ФормаСписка.xaml.cs">
       <DependentUpon>ФормаСписка.xaml</DependentUpon>
     </Compile>
@@ -104,6 +107,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="ФормаВыбора.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="ФормаОтчета.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

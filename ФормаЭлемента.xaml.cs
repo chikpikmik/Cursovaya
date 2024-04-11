@@ -220,12 +220,39 @@ namespace Cursovaya
             string Query                = ThisIsNewElement ? AddQuery : UpdateQuery;
             TableUpdateTypes updateType = ThisIsNewElement ? TableUpdateTypes.INSERT : TableUpdateTypes.UPDATE;
 
+
             // Проверка заполнения даты записи в регистр в случае если это нужно
             string РесСвРег = TableInfo.РесурсСвязянногоРегистра;
-            if (РесСвРег!=null && ДатаЗаписиВРегистр.SelectedDate == null && (Element[РесСвРег] != NewElement[РесСвРег] || ThisIsNewElement))
+            if (РесСвРег!=null)
             {
-                Отказ = Истина;
-                MessageBox.Show("Заполните дату записи в регистр");
+                if (ДатаЗаписиВРегистр.SelectedDate == null)
+                {
+                    if (Element[РесСвРег] != NewElement[РесСвРег] || ThisIsNewElement)
+                    {
+                        Отказ = Истина;
+                        MessageBox.Show("Заполните дату записи в регистр");
+                    }
+                    // Иначе запись в регистр не требуется
+                }
+                else
+                {
+                    var RegInfo = db.GetTableInfo(TableInfo.СвязанныйРегистр);
+                    string TableForeignKeyName = RegInfo.ColumnName_ColumnInfo.FirstOrDefault(pair => pair.Value.LinkedTableName == TableInfo.TableName).Key;
+
+                    DateTime date = (DateTime)ДатаЗаписиВРегистр.SelectedDate;
+                    string CheckQuery = "" +
+                        $"SELECT 1 " +
+                        $"FROM  {TableInfo.СвязанныйРегистр} " +
+                        $"WHERE Дата = '{date.ToShortDateString()}' AND {TableForeignKeyName} = '{NewElement[TableInfo.PrimaryKey]}' ";
+
+                    var result = db.GetDataTableByQuery(CheckQuery);
+                    if (result.Rows.Count > 0) 
+                    {
+                        Отказ = Истина;
+                        MessageBox.Show("На выбранную дату уже существует запись в регистре, выберите другую дату");
+                    }
+                }
+                
             }
 
             if (Отказ)
@@ -242,11 +269,17 @@ namespace Cursovaya
                 return;
             }
 
-            // Запись изменения в регистр в случае наличия изменения
+            // Запись изменения в регистр
             if (РесСвРег != null)
             {
                 bool continueflag = true;
-                if (!ThisIsNewElement && Element[РесСвРег] == NewElement[РесСвРег]) 
+                
+                if (ДатаЗаписиВРегистр.SelectedDate == null)
+                    continueflag = false;
+                
+                
+                else if (Element[РесСвРег] == NewElement[РесСвРег] && !ThisIsNewElement)
+                // или !(Element[РесСвРег] != NewElement[РесСвРег] || ThisIsNewElement)
                 {
                     string messageBoxText = $"Значние ресурса связанного регистра {РесСвРег} не изменилось, хотите создать запись в связанном регистре?";
                     string caption = "Word Processor";
@@ -257,16 +290,26 @@ namespace Cursovaya
                     result = MessageBox.Show(messageBoxText, caption, button, icon, MessageBoxResult.No);
                     continueflag = result == MessageBoxResult.Yes;
                 }
-                if (continueflag) 
+
+                if (continueflag)
                 {
-                    db.ДобавитьЗаписьВРегистр(
-                        TableInfo.СвязанныйРегистр, 
-                        TableInfo.TableName,
-                        NewElement[TableInfo.PrimaryKey],
-                        РесСвРег,
-                        NewElement[РесСвРег],
-                        (DateTime)ДатаЗаписиВРегистр.SelectedDate);
+                    try
+                    {
+                        db.ДобавитьЗаписьВРегистр(
+                            TableInfo.СвязанныйРегистр,
+                            TableInfo.TableName,
+                            NewElement[TableInfo.PrimaryKey],
+                            РесСвРег,
+                            NewElement[РесСвРег],
+                            (DateTime)ДатаЗаписиВРегистр.SelectedDate);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка при записи в связанный регистр: {ex.Message}, изменение не было записано в регистр");
+
+                    }
                 }
+
             }
 
 

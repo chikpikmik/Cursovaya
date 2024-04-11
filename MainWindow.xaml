@@ -177,7 +177,7 @@
             <Frame 
                 Name="MainFrame"
                 NavigationUIVisibility="Hidden" 
-                HorizontalAlignment="Right" />
+                HorizontalAlignment="Left" />
 
         </Grid>
 
@@ -204,6 +204,11 @@
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
                     </Style>
                 </StackPanel.Resources>
+
+                <ComboBox>
+                    <ComboBoxItem Content="123"/>
+                    <ComboBoxItem Content="345"/>
+                </ComboBox>
 
             </StackPanel>
 

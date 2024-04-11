@@ -24,6 +24,7 @@ namespace Cursovaya
     /// </summary>
     public partial class MainWindow : Window
     {
+        public List<ReportInfo> reports;
         public MainWindow()
         {
             InitializeComponent();
@@ -32,9 +33,9 @@ namespace Cursovaya
             ci.DateTimeFormat.ShortDatePattern = "yyyy-MM-dd";
             ci.DateTimeFormat.FullDateTimePattern = "yyyy-MM-dd";
             Thread.CurrentThread.CurrentCulture = ci;
+            reports = db.GetReportsList();
 
-
-            foreach( var Access in App.UserAccess )
+            foreach ( var Access in App.UserAccess )
             {
                 string TableName = Access.Key;
                 if (Access.Value != AccessRights.НетДоступа)
@@ -44,6 +45,10 @@ namespace Cursovaya
                     MenuButtons.Children.Add(button);
                 }
             }
+            var c = new ComboBox();
+            c.SelectionChanged += Report_Selected;
+            c.ItemsSource = reports;
+            MenuButtons.Children.Add(c);
 
         }
 
@@ -73,6 +78,14 @@ namespace Cursovaya
         {
             Button b = sender as Button;
             MainFrame.Navigate(new ФормаСписка(b.Content.ToString()));
+        }
+
+
+        private void Report_Selected(object sender, SelectionChangedEventArgs e)
+        {
+            ComboBox c = sender as ComboBox;
+            //MessageBox.Show(reports[c.SelectedIndex].Name);
+            MainFrame.Navigate(new ФормаОтчета(reports[c.SelectedIndex]));
         }
     }
 }
