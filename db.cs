@@ -110,7 +110,8 @@ namespace Cursovaya
 
     public class db
     {
-        private static string fullPath = @"C:\Users\Lolban\Projects\Cursovaya\db.db";
+        //private static string fullPath = @"C:\Users\Lolban\Projects\Cursovaya\db.db";
+        private static string fullPath = "db.db";
         static public List<User> GetUsersList()
         {
             List<User> Users = new List<User>();

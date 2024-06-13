@@ -205,10 +205,6 @@
                     </Style>
                 </StackPanel.Resources>
 
-                <ComboBox>
-                    <ComboBoxItem Content="123"/>
-                    <ComboBoxItem Content="345"/>
-                </ComboBox>
 
             </StackPanel>
 

@@ -17,9 +17,7 @@ using System.Xml.Linq;
 
 namespace Cursovaya
 {
-    /// <summary>
-    /// Логика взаимодействия для ФормаОтчета.xaml
-    /// </summary>
+
     public partial class ФормаОтчета : Page
     {
         public ReportInfo Report;
