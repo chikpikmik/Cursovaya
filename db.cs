@@ -17,11 +17,13 @@ namespace Cursovaya
         public string Name;
         public string Password;
         public int id;
-        public User(string name, string password, int id_)
+        public List<int> ДоступныеОтделы;
+        public User(string name, string password, int id_, List<int> доступныеотделы)
         {
             Name = name;
             Password = password;
             id = id_;
+            ДоступныеОтделы = доступныеотделы;
         }
         public override string ToString()
         {
@@ -116,8 +118,9 @@ namespace Cursovaya
         {
             List<User> Users = new List<User>();
 
-            string queryString = "SELECT Name, Password, id FROM Users";
+            DataTable СвязьОтделовИПользователей = GetDataTableByQuery("SELECT User_id, Отдел_id FROM Users_Отделы_through");
 
+            string queryString = "SELECT Name, Password, id FROM Users";
 
             using (SQLiteConnection connection = new SQLiteConnection($"Data Source={fullPath}; Version=3;"))
             {
@@ -134,10 +137,27 @@ namespace Cursovaya
                             string password = reader.GetString(1);
                             int id = reader.GetInt32(2);
 
-                            Users.Add(new User(Name, password, id));
+                            DataRow[] ДоступныеОтделы = СвязьОтделовИПользователей.Select($"User_id = '{id}'");
+                            List<int> ДоступныеОтделыIds = new List<int>();
+
+                            foreach (DataRow row in ДоступныеОтделы){
+                                if(row.IsNull("Отдел_id")){
+                                    ДоступныеОтделыIds = null; // значит есть доступ ко всем отделам
+                                    break;
+                                }
+                                else{
+                                    int ОтделId = Convert.ToInt32(row["Отдел_id"]);
+                                    ДоступныеОтделыIds.Add(ОтделId);
+                                }
+                            }
+
+                            Users.Add(new User(Name, password, id, ДоступныеОтделыIds));
                         }
                     }
                 }
+
+
+
             }
 
             return Users;
@@ -173,8 +193,7 @@ namespace Cursovaya
                             
                             ReportInfo report = Reports.Find(p => p.id == Отчет_id);
 
-                            if (report == null)
-                            {
+                            if (report == null) {
                                 report = new ReportInfo(Отчет, Запрос, Отчет_id);
                                 Reports.Add(report);
                             }

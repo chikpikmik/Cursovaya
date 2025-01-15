@@ -52,6 +52,12 @@ namespace Cursovaya
         {
             string Query = Report.Query;
 
+            // Если нужна фильтрация по доступным отчетам
+            if (App.CurrentUser.ДоступныеОтделы != null)
+                Query = Query.Replace("{ДоступныеОтделыIds}", string.Join(", ", App.CurrentUser.ДоступныеОтделы));
+            else
+                Query = Query.Replace("c.Отдел_id IN ({ДоступныеОтделыIds})", "TRUE");
+
             bool Отказ = false;
             bool Истина = true;
 

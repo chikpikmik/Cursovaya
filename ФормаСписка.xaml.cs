@@ -44,9 +44,18 @@ namespace Cursovaya
                 // Это событие при двойном щелчке по строке
                 DataGrid.RowStyle.Setters.RemoveAt(0);
             }
-            
 
-            DataGrid.ItemsSource = db.GetDataTableByQuery($"SELECT * FROM {tablename}").DefaultView;
+            string query = $"SELECT * FROM {tablename}";
+            if (tablename == "График" && App.CurrentUser.ДоступныеОтделы != null)
+            {
+                query = $"SELECT Дата, Работник_id, КоличествоРабочихЧасов FROM {tablename} JOIN Работники w ON Работник_id = w.id WHERE w.Отдел_id IN ({string.Join(", ", App.CurrentUser.ДоступныеОтделы)})";
+            }
+            else if (tablename == "Работники" && App.CurrentUser.ДоступныеОтделы != null)
+            {
+                query = $"SELECT * FROM {tablename} WHERE Отдел_id IN ({string.Join(", ", App.CurrentUser.ДоступныеОтделы)})";
+            }
+
+            DataGrid.ItemsSource = db.GetDataTableByQuery(query).DefaultView;
         }
 
         private void Row_DoubleClick(object sender, MouseButtonEventArgs e)
